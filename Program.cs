@@ -11,8 +11,6 @@ namespace StereoKitProjectCore
         Cube,
         Ball,
         Cyclinder
-            // And show the pointer
-            Default.MeshCube.Draw(Default.Material, c.aim.ToMatrix(new Vec3(1, 1, 4) * U.cm), Color.HSV(0, 0.5f, 0.8f).ToLinear());
     }
 
     class Entity
@@ -72,6 +70,9 @@ namespace StereoKitProjectCore
 
             Hierarchy.Pop();
             Hierarchy.Pop();
+
+            // And show the pointer
+            Default.MeshCube.Draw(Default.Material, c.aim.ToMatrix(new Vec3(1, 1, 4) * U.cm), Color.HSV(0, 0.5f, 0.8f).ToLinear());
         }
 
         static void drawWindow()
@@ -105,6 +106,8 @@ namespace StereoKitProjectCore
         static void Render()
         {
             drawWindow();
+            ShowController(Handed.Left);
+            ShowController(Handed.Right);
             foreach (var e in entities)
             {
                 e.Draw();
@@ -163,8 +166,6 @@ namespace StereoKitProjectCore
 
                 Render();
 
-                ShowController(Handed.Left);
-                ShowController(Handed.Right);
                 //UI.Handle("Cube", ref cubePose, cube.Bounds);
                 //cube.Draw(cubePose.ToMatrix());
 
