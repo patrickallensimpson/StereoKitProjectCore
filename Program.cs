@@ -15,15 +15,42 @@ namespace StereoKitProjectCore
 
     class Entity
     {
-
+        public static Vec3 gravity = new Vec3(0f, -9.8f, 0f);
         public Color color;
         public Model model;
         public Pose pose;
+        public Vec3 velocity;
+        public Vec3 previousPosition;
+        public bool touched = false;
         public string name = System.Guid.NewGuid().ToString();
 
-        public void Draw()
+        public void Draw(TimeSpan elapsedTime,float dampingFactor,bool applyGravity)
         {
-            UI.Handle(name, ref this.pose, model.Bounds);
+            // apply velocity to pose
+            if (UI.Handle(name, ref this.pose, model.Bounds)) {
+                touched = true;
+                velocity = (pose.position - previousPosition) / ((float)elapsedTime.TotalSeconds);
+                previousPosition = pose.position;
+                System.Console.WriteLine($"true {velocity.x} {velocity.y} {velocity.z}");
+            } else if (touched) {
+                touched = false;
+                if (applyGravity) {
+                    velocity = velocity + gravity * ((float)elapsedTime.TotalSeconds);
+                }
+            } else {
+                if (velocity.Length < 0.01f) {
+                    velocity = Vec3.Zero;
+                } else {
+                    System.Console.WriteLine($"false {velocity.x} {velocity.y} {velocity.z}");
+                    pose.position = pose.position + (velocity * ((float)elapsedTime.TotalSeconds));
+                    if (applyGravity) {
+                        if (pose.position.y >= -1.5f) {
+                            velocity = velocity + gravity * ((float)elapsedTime.TotalSeconds);
+                        }
+                    }
+                    velocity = velocity * (1f - dampingFactor);
+                }
+            }
             model.Draw(pose.ToMatrix());
         }
     }
@@ -75,7 +102,7 @@ namespace StereoKitProjectCore
             Default.MeshCube.Draw(Default.Material, c.aim.ToMatrix(new Vec3(1, 1, 4) * U.cm), Color.HSV(0, 0.5f, 0.8f).ToLinear());
         }
 
-        static void drawWindow()
+        static void drawWindow(ref bool applyGravity, ref float dampingFactor)
         {
             UI.WindowBegin("Objects", ref windowPose, new Vec2(40, 0) * U.cm, UIWin.Normal);
             UI.Label("Object To Create:");
@@ -89,6 +116,14 @@ namespace StereoKitProjectCore
                 Console.WriteLine("Created a new object");
                 CreateNewEntity(objectType);
             }
+            UI.NextLine();
+            UI.Toggle("Apply Gravity", ref applyGravity);
+            UI.NextLine();
+            UI.Label("Damping Factor: ");
+            UI.NextLine();
+            UI.HSlider("DampingFactor", ref dampingFactor, 0, 0.5f, 0.01f);
+            //var dampingFactorTxt = dampingFactor.ToString();
+            //UI.Input("DampingFactorInput", ref dampingFactorTxt, type = TextContext.Number);
             UI.WindowEnd();
         }
 
@@ -103,16 +138,19 @@ namespace StereoKitProjectCore
                 Default.MeshCube.Draw(floorMaterial, floorTransform);
         }
 
-        static void Render()
+        static void Render(TimeSpan elapsedTime)
         {
-            drawWindow();
+            drawWindow(ref applyGravity, ref dampingFactor);
             ShowController(Handed.Left);
             ShowController(Handed.Right);
             foreach (var e in entities)
             {
-                e.Draw();
+                e.Draw(elapsedTime,dampingFactor,applyGravity);
             }
         }
+
+        static bool applyGravity = false;
+        static float dampingFactor = 0.05f;
 
         static Model cube = Model.FromMesh(
             Mesh.GenerateRoundedCube(Vec3.One * 0.1f, 0.02f),
@@ -158,13 +196,17 @@ namespace StereoKitProjectCore
 
 
             // Create assets used by the app
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             
             // Core application loop
             while (SK.Step(() =>
             {
+                var elaspsedTime = sw.Elapsed;
+                sw.Restart();
                 RenderFloor();
 
-                Render();
+                Render(elaspsedTime);
 
                 //UI.Handle("Cube", ref cubePose, cube.Bounds);
                 //cube.Draw(cubePose.ToMatrix());
